@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -154,14 +153,6 @@
                 max-width: 400px;
                 width: 90%;
                 z-index: 100;
-                opacity: 0;
-                transition: opacity 0.5s ease, transform 0.5s ease;
-                transform: scale(0.9);
-            }
-
-            #url-input-card.visible {
-                opacity: 1;
-                transform: scale(1);
             }
 
             #url-input-card h2 {
@@ -187,8 +178,7 @@
                 background-color: rgba(255, 255, 255, 0.3);
             }
 
-            #submit-url,
-            #repeat-song {
+            #submit-url {
                 background-color: #00ffff;
                 color: #111;
                 border: none;
@@ -198,11 +188,9 @@
                 font-weight: 600;
                 cursor: pointer;
                 transition: all 0.3s ease;
-                margin-top: 10px;
             }
 
-            #submit-url:hover,
-            #repeat-song:hover {
+            #submit-url:hover {
                 background-color: #00cccc;
                 transform: translateY(-2px);
             }
@@ -213,11 +201,10 @@
             <canvas id="visualizer"></canvas>
         </div>
 
-        <div id="url-input-card" class="visible">
+        <div id="url-input-card">
             <h2>Enter Music URL</h2>
             <input type="text" id="url-input" placeholder="https://example.com/music.mp3" />
             <button id="submit-url">Start Visualizer</button>
-            <button id="repeat-song" style="display: none;">Repeat Song</button>
         </div>
 
         <div id="ui-container" style="display: none;">
@@ -239,7 +226,6 @@
             const urlInputCard = document.getElementById("url-input-card");
             const urlInput = document.getElementById("url-input");
             const submitUrlButton = document.getElementById("submit-url");
-            const repeatSongButton = document.getElementById("repeat-song");
             const uiContainer = document.getElementById("ui-container");
             const playPauseBtn = document.getElementById("play-pause");
             const stopBtn = document.getElementById("stop");
@@ -252,135 +238,120 @@
             // Three.js setup
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('visualizer'), antialias: true });
+            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("visualizer"), antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-        
+
             // Create visualizer elements
             const geometry = new THREE.SphereGeometry(1, 32, 32);
             const material = new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: true });
             const sphere = new THREE.Mesh(geometry, material);
             scene.add(sphere);
-        
+
             const light = new THREE.PointLight(0xffffff, 1, 100);
             light.position.set(0, 0, 10);
             scene.add(light);
-        
+
             camera.position.z = 5;
-        
+
             // Audio context and analyzer setup
             let audioContext, analyser, source;
-        
+
             function setupAudioContext() {
-              audioContext = new (window.AudioContext || window.webkitAudioContext)();
-              analyser = audioContext.createAnalyser();
-              analyser.fftSize = 256;
-              source = audioContext.createMediaElementSource(audioPlayer);
-              source.connect(analyser);
-              analyser.connect(audioContext.destination);
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source = audioContext.createMediaElementSource(audioPlayer);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
             }
-        
+
             const bufferLength = 128;
             const dataArray = new Uint8Array(bufferLength);
-        
+
             function animate() {
-              requestAnimationFrame(animate);
-        
-              if (analyser) {
-                analyser.getByteFrequencyData(dataArray);
-        
-                // Calculate average frequency
-                const average = dataArray.reduce((a, b) => a + b) / bufferLength;
-        
-                // Update sphere based on audio data
-                sphere.scale.set(1 + average / 256, 1 + average / 256, 1 + average / 256);
-                sphere.rotation.x += 0.01;
-                sphere.rotation.y += 0.01;
-        
-                // Update light color based on frequency
-                const hue = (average / 256) * 360;
-                light.color.setHSL(hue / 360, 1, 0.5);
-              }
-        
-              renderer.render(scene, camera);
+                requestAnimationFrame(animate);
+
+                if (analyser) {
+                    analyser.getByteFrequencyData(dataArray);
+
+                    // Calculate average frequency
+                    const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+
+                    // Update sphere based on audio data
+                    sphere.scale.set(1 + average / 256, 1 + average / 256, 1 + average / 256);
+                    sphere.rotation.x += 0.01;
+                    sphere.rotation.y += 0.01;
+
+                    // Update light color based on frequency
+                    const hue = (average / 256) * 360;
+                    light.color.setHSL(hue / 360, 1, 0.5);
+                }
+
+                renderer.render(scene, camera);
             }
-        
+
             animate();
 
-            submitUrlButton.addEventListener("click", () => {
-                const url = urlInput.value.trim();
-                if (url) {
-                    loadAudio(url);
-                    urlInputCard.classList.remove("visible");
-                    uiContainer.style.display = "flex";
-                }
-            });
+            function updateTimeDisplay() {
+                const currentTime = audioPlayer.currentTime;
+                const duration = audioPlayer.duration;
+                const formattedCurrentTime = formatTime(currentTime);
+                const formattedDuration = formatTime(duration);
+                timeDisplay.textContent = `${formattedCurrentTime} / ${formattedDuration}`;
+                progressBar.style.width = `${(currentTime / duration) * 100}%`;
+            }
 
-            repeatSongButton.addEventListener("click", () => {
-                if (audioPlayer) {
-                    audioPlayer.currentTime = 0;
-                    audioPlayer.play();
-                    urlInputCard.classList.remove("visible");
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+                return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+            }
+
+            submitUrlButton.addEventListener("click", () => {
+                let url = urlInput.value.trim();
+                if (url) {
+                    // Add CORS proxy to the URL
+                    url = `https://cors.mubi.tech/cors?target=${encodeURIComponent(url)}`;
+                    audioPlayer = new Audio(url);
+                    audioPlayer.crossOrigin = "anonymous";
+                    setupAudioContext();
+                    urlInputCard.style.display = "none";
                     uiContainer.style.display = "flex";
+                    audioPlayer.addEventListener("timeupdate", updateTimeDisplay);
+                    audioPlayer.addEventListener("loadedmetadata", updateTimeDisplay);
+                    audioPlayer.load();
                 }
             });
 
             playPauseBtn.addEventListener("click", () => {
-                if (audioPlayer.paused) {
-                    audioPlayer.play();
-                    isPlaying = true;
-                    playPauseBtn.textContent = "Pause";
-                } else {
+                if (isPlaying) {
                     audioPlayer.pause();
-                    isPlaying = false;
                     playPauseBtn.textContent = "Play";
+                } else {
+                    audioPlayer.play().catch((e) => console.error("Error playing audio:", e));
+                    playPauseBtn.textContent = "Pause";
+                    audioContext.resume();
                 }
+                isPlaying = !isPlaying;
             });
 
             stopBtn.addEventListener("click", () => {
                 audioPlayer.pause();
                 audioPlayer.currentTime = 0;
-                isPlaying = false;
                 playPauseBtn.textContent = "Play";
+                isPlaying = false;
+                updateTimeDisplay();
             });
 
-            volumeSlider.addEventListener("input", () => {
-                if (audioPlayer) audioPlayer.volume = volumeSlider.value;
+            volumeSlider.addEventListener("input", (e) => {
+                audioPlayer.volume = e.target.value;
             });
 
-            function loadAudio(url) {
-                if (audioPlayer) {
-                    audioPlayer.pause();
-                    audioPlayer.src = "";
-                }
-
-                audioPlayer = new Audio(url);
-                audioPlayer.crossOrigin = "anonymous";
-                audioPlayer.volume = volumeSlider.value;
-                audioPlayer.play();
-                isPlaying = true;
-                playPauseBtn.textContent = "Pause";
-
-                audioPlayer.addEventListener("timeupdate", () => {
-                    const currentTime = formatTime(audioPlayer.currentTime);
-                    const duration = formatTime(audioPlayer.duration);
-                    timeDisplay.textContent = `${currentTime} / ${duration}`;
-                    progressBar.style.width = `${(audioPlayer.currentTime / audioPlayer.duration) * 100}%`;
-                });
-
-                audioPlayer.addEventListener("ended", () => {
-                    isPlaying = false;
-                    playPauseBtn.textContent = "Play";
-                    uiContainer.style.display = "none";
-                    urlInputCard.classList.add("visible");
-                    repeatSongButton.style.display = "inline-block";
-                });
-            }
-
-            function formatTime(time) {
-                const minutes = Math.floor(time / 60);
-                const seconds = Math.floor(time % 60);
-                return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-            }
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
         </script>
     </body>
 </html>
