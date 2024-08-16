@@ -252,29 +252,58 @@
             // Three.js setup
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("visualizer"), antialias: true });
+            const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('visualizer'), antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-
+        
             // Create visualizer elements
             const geometry = new THREE.SphereGeometry(1, 32, 32);
             const material = new THREE.MeshPhongMaterial({ color: 0xffffff, wireframe: true });
             const sphere = new THREE.Mesh(geometry, material);
             scene.add(sphere);
-
+        
             const light = new THREE.PointLight(0xffffff, 1, 100);
             light.position.set(0, 0, 10);
             scene.add(light);
-
+        
             camera.position.z = 5;
-
-            function animate() {
-                requestAnimationFrame(animate);
-                if (audioPlayer && !audioPlayer.paused) {
-                    sphere.rotation.x += 0.01;
-                    sphere.rotation.y += 0.01;
-                }
-                renderer.render(scene, camera);
+        
+            // Audio context and analyzer setup
+            let audioContext, analyser, source;
+        
+            function setupAudioContext() {
+              audioContext = new (window.AudioContext || window.webkitAudioContext)();
+              analyser = audioContext.createAnalyser();
+              analyser.fftSize = 256;
+              source = audioContext.createMediaElementSource(audioPlayer);
+              source.connect(analyser);
+              analyser.connect(audioContext.destination);
             }
+        
+            const bufferLength = 128;
+            const dataArray = new Uint8Array(bufferLength);
+        
+            function animate() {
+              requestAnimationFrame(animate);
+        
+              if (analyser) {
+                analyser.getByteFrequencyData(dataArray);
+        
+                // Calculate average frequency
+                const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+        
+                // Update sphere based on audio data
+                sphere.scale.set(1 + average / 256, 1 + average / 256, 1 + average / 256);
+                sphere.rotation.x += 0.01;
+                sphere.rotation.y += 0.01;
+        
+                // Update light color based on frequency
+                const hue = (average / 256) * 360;
+                light.color.setHSL(hue / 360, 1, 0.5);
+              }
+        
+              renderer.render(scene, camera);
+            }
+        
             animate();
 
             submitUrlButton.addEventListener("click", () => {
